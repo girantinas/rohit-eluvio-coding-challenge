@@ -1,8 +1,9 @@
+/* Returns the Longest Common Strand from a list of files named "sample.1", "sample.2", etc. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* Helper that compares the points behind the strings. */
+/* Compares strings given pointers to them. */
 int pstrcmp(const void *a, const void *b) {
     return strcmp((const char *)*(char **)a, (const char *)*(char **)b);
 }
@@ -25,7 +26,7 @@ char **readFiles(int numFiles) {
     char **strs = (char**)malloc(numFiles*sizeof(char*));
     
     for (int i = 0; i < numFiles; ++i) {
-        sprintf(buffer, "sample.%d", i);
+        sprintf(buffer, "sample.%d", i + 1); //Files are 1-indexed...
         FILE* file = fopen(buffer, "r");
 
         fseek(file, 0, SEEK_END);
@@ -44,16 +45,18 @@ char **readFiles(int numFiles) {
 }
 
 /* Finds which numbered interval a given number is in.*/
-int findInterval(int num, int *intervalLens) {
-    int sofarLen = 0;
+int findInterval(int num, int *intervalStarts, int numIntervals) {
     int i = 0;
-    while(num >= sofarLen) {
-        sofarLen += intervalLens[i++];
+    while(i < numIntervals && num >= intervalStarts[i]) {
+        i++;
     }
     return --i;
 }
 
 int main(int argc, char **argv) {
+    if (argc < 0) {
+        return -1;
+    }
     int NUM_FILES = atoi(argv[1]);
     printf("%d", NUM_FILES);
     if (NUM_FILES < 2) {
@@ -61,12 +64,12 @@ int main(int argc, char **argv) {
         return -1;
     }
     char **strs = readFiles(NUM_FILES);
-
-    int *lens = (int*)malloc(NUM_FILES*sizeof(int));
+    //Contains the index of the start of each string in the concatenated string.
+    int *starts = (int*)malloc(NUM_FILES*sizeof(int));
     int sumOflens = 0;
     for (int i = 0; i < NUM_FILES; ++i) {
-        lens[i] = strlen(strs[i]);
-        sumOflens += lens[i];
+        starts[i] = sumOflens;
+        sumOflens += strlen(strs[i]);
     }
 
     char **arrayPointers = (char**)malloc((sumOflens)*sizeof(char*));
@@ -75,7 +78,6 @@ int main(int argc, char **argv) {
     concatString[0] = 0;
     for (int i = 0; i < NUM_FILES; ++i) {
         strcat(concatString, strs[i]);
-
     }
 
     // Set up array pointers (representing suffixes)
@@ -83,38 +85,44 @@ int main(int argc, char **argv) {
         arrayPointers[i] = &(concatString[i]);
     }
 
-    for (int i = 0; i < sumOflens; ++i) {
-        printf("%s\n", arrayPointers[i]);
-    }
-
+    //Sort the suffix array
     qsort(arrayPointers, sumOflens, sizeof(char *), pstrcmp);
 
-    for (int i = 0; i < sumOflens; ++i) {
-        printf("%s\n", arrayPointers[i]);
-    }
-
-    printf("finding the lcsn");
-
-    int lcslen = 0, lcplen, lcssufpos = -1;
+    // Length of longest common substring.
+    int lcslen = 0;
+    // Which numbered strings are the ones which share the lcs.
+    int lcsstr1 = -1, lcsstr2 = -1;
+    // The positions of the lcs in these strings.
+    int lcssufpos1 = -1, lcssufpos2 = -1;
     for (int i = 0; i < sumOflens - 1; ++i) {
-
-        //figure out where in the len array the adjacent pointers lie.
-        // If they lie in the same string, then no need to consider
-        int inter1 = findInterval(arrayPointers[i] - concatString, lens);
-        int inter2 = findInterval(arrayPointers[i+1] - concatString, lens);
+        //Figure out where in the len array the adjacent pointers lie.
+        //If they lie in the same string, then no need to consider
+        int pos1 = arrayPointers[i] - concatString;
+        int inter1 = findInterval(pos1, starts, NUM_FILES);
+        int pos2 = arrayPointers[i+1] - concatString;
+        int inter2 = findInterval(pos2, starts, NUM_FILES);
         if (inter1 != inter2) {
-            lcplen = lcp(arrayPointers[i], arrayPointers[i+1]);
+            //If the two suffixes in the suffixes array live in different strings,
+            //then their least common prefix is a substring of them both.
+            int lcplen = lcp(arrayPointers[i], arrayPointers[i+1]);
             if (lcplen > lcslen) {
                 lcslen = lcplen;
-                lcssufpos = i;
+                lcsstr1 = inter1 + 1; //1-indexed for filenames
+                lcsstr2 = inter2 + 1;
+                //The position within a string is position in the concatenated string 
+                //minus the where the string starts.
+                lcssufpos1 = pos1 - starts[inter1];
+                lcssufpos2 = pos2 - starts[inter2];
             }
         }
     }
 
-    if (lcssufpos == -1) {
-        printf("no lcs\n");
+    if (lcsstr1 == -1) {
+        printf("No Common Strand.\n");
     } else {
-        printf("%.*s\n", lcslen, arrayPointers[lcssufpos]);
+        printf("Longest Common Strand found: \n File 1: sample.%d ; \t Strand Offset: %d \
+                \n File 2: sample.%d ; \t Strand Offset: %d",
+               lcsstr1, lcssufpos1, lcsstr2, lcssufpos2);
     }
 
 }
