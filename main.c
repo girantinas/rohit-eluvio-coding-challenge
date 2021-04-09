@@ -6,8 +6,8 @@
 #include <string.h>
 
 //Global Variables, Useful for qsort functions.
-uchar* TOTAL_STRING; // concatString in main
-int SUM_OF_LENS; // sumOflens in main
+uchar* concatStringGlobal; // concatString in main
+int sumOflensGlobal; // sumOflens in main
 
 /* Helper struct which contains all the info from the files. */
 typedef struct {
@@ -17,70 +17,11 @@ typedef struct {
     int *lens;
 } FileInfo;
 
-int lcp(char *a, char *b);
+int len(uchar *a);
+int lcp(uchar *a, uchar *b);
 int pstrcmp(const void *a, const void *b);
 FileInfo *readFiles(int numFiles);
 int findInterval(int num, int *intervalStarts, int numIntervals);
- 
-/* Returns the longest common prefix of two strings. */
-int lcp(char *a, char *b) {
-    int len1 = strlen(a);
-    int len2 = strlen(b);
-    int i;
-    for (i = 0; (i < len1) && (i < len2); ++i) {
-        if (a[i] != b[i]) break;
-    }
-    return i;
-}
-
-/* Compares uchar arrays given pointers to them. */
-int pstrcmp(const void *a, const void *b) {
-    int len1 = SUM_OF_LENS - (*(uchar **)a - TOTAL_STRING);
-    int len2 = SUM_OF_LENS - (*(uchar **)b - TOTAL_STRING);
-    int cmp = memcmp((uchar *) *(uchar **)a, (uchar *) *(uchar **)b, min(len1, len2));
-    if (cmp == 0) {
-        if (len2 > len1) { return 1; }
-        else if (len1 > len2) { return -1; }
-        else { return 0; }
-    }
-    return cmp;
-}
-
-/* Reads a number of output files and returns an array of chars reproduced from the files. */
-FileInfo *readFiles(int numFiles) {
-    char buffer[FILENAME_MAX];
-    uchar **strs = (uchar**)malloc(numFiles*sizeof(uchar*));
-    int *lens = (int *)malloc(numFiles*sizeof(int));
-    for (int i = 0; i < numFiles; ++i) {
-        sprintf(buffer, "sample.%d", i + 1); //Files are 1-indexed...
-        FILE* file = fopen(buffer, "rb");
-
-        fseek(file, 0, SEEK_END);
-        size_t size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-
-        uchar* currStr = (uchar*)malloc(size*sizeof(uchar));
-        fread(currStr, sizeof(uchar), size, file);
-
-        lens[i] = size;
-        strs[i] = currStr;
-        fclose(file);
-    }
-    FileInfo *info;
-    info = malloc(sizeof(FileInfo));
-    info->strs = strs;
-    info->lens = lens;
-    return info;
-}
-
-/* Finds which numbered interval a given number is in.*/
-int findInterval(int num, int *intervalStarts, int numIntervals) {
-    int i = 0;
-    while(i < numIntervals && num >= intervalStarts[i]) {
-        i++;
-    }
-    return --i;
-}
 
 int main() {
     int NUM_FILES;
@@ -113,8 +54,8 @@ int main() {
     }
 
     //Store these things in global vars for use qsort functions
-    TOTAL_STRING = concatString;
-    SUM_OF_LENS = sumOflens;
+    concatStringGlobal = concatString;
+    sumOflensGlobal = sumOflens;
     //Sort the suffix array
     qsort(arrayPointers, sumOflens, sizeof(uchar **), pstrcmp);
     
@@ -159,4 +100,69 @@ int main() {
     free(arrayPointers);
     free(concatString);
     free(info);
+}
+
+/* Returns the length of a subarray of concatStringGlobal. */
+int len(uchar *a) {
+    return sumOflensGlobal - (a - concatStringGlobal);
+}
+
+/* Returns the length of longest common prefix of two char arrays. */
+int lcp(uchar *a, uchar *b) {
+    int len1 = len(a);
+    int len2 = len(b);
+    int i;
+    for (i = 0; (i < len1) && (i < len2); ++i) {
+        if (a[i] != b[i]) break;
+    }
+    return i;
+}
+
+/* Compares uchar arrays given pointers to them. */
+int pstrcmp(const void *a, const void *b) {
+    int len1 = len(*(uchar **)a);
+    int len2 = len(*(uchar **)b);
+    int cmp = memcmp((uchar *) *(uchar **)a, (uchar *) *(uchar **)b, min(len1, len2));
+    if (cmp == 0) {
+        if (len2 > len1) { return 1; }
+        else if (len1 > len2) { return -1; }
+        else { return 0; }
+    }
+    return cmp;
+}
+
+/* Reads a number of output files and returns an array of chars reproduced from the files. */
+FileInfo *readFiles(int numFiles) {
+    char buffer[FILENAME_MAX];
+    uchar **strs = (uchar**)malloc(numFiles*sizeof(uchar*));
+    int *lens = (int *)malloc(numFiles*sizeof(int));
+    for (int i = 0; i < numFiles; ++i) {
+        sprintf(buffer, "sample.%d", i + 1); //Files are 1-indexed...
+        FILE* file = fopen(buffer, "rb");
+
+        fseek(file, 0, SEEK_END);
+        size_t size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+
+        uchar* currStr = (uchar*)malloc(size*sizeof(uchar));
+        fread(currStr, sizeof(uchar), size, file);
+
+        lens[i] = size;
+        strs[i] = currStr;
+        fclose(file);
+    }
+    FileInfo *info;
+    info = malloc(sizeof(FileInfo));
+    info->strs = strs;
+    info->lens = lens;
+    return info;
+}
+
+/* Finds which numbered interval a given number is in.*/
+int findInterval(int num, int *intervalStarts, int numIntervals) {
+    int i = 0;
+    while(i < numIntervals && num >= intervalStarts[i]) {
+        i++;
+    }
+    return --i;
 }
