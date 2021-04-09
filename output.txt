@@ -1,0 +1,5 @@
+How many files would you like to scan? 
+10
+Longest Common Strand found: Length 33792 
+ File 1: sample.2	 Strand Offset: 3072                 
+ File 2: sample.3	 Strand Offset: 17408 
